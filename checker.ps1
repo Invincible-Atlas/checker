@@ -14,18 +14,26 @@ $urlString = Get-Content $filename
 $urlList =  $urlString -Split "`n"
 $unblockedString = ""
 foreach ($i in $urlList){
-    $statusCode = Invoke-WebRequest -Uri $i -UseBasicParsing -MaximumRedirection 0 | Select-Object -Expand StatusCode
-    if ($statusCode -eq 307){
-        Write-Host $i " is blocked"
-    }elseif ($statusCode -ge 300 -and $statusCode -lt 400) {
-        Write-Host $i " was redirected with a code of " $statusCode
-    }elseif ($statusCode -ge 400 -and $statusCode -lt 500){
-        Write-Host "There was a client error when trying to reach " $i ". The code is " $statusCode
-    }elseif ($statusCode -ge 400 -and $statusCode -lt 500){
-        Write-Host "There was a server error when trying to reach " $i ". The code is " $statusCode
+    if (-not $i.StartsWith('https://')){
+        $url = "https://"+$i
     }else{
-        Write-Host $i " is unblocked"
-        $unblockedString += "," + $i
+        $url = $i
+    }
+    $statusCode = 0
+    $statusCode = Invoke-WebRequest -Uri $url -UseBasicParsing -MaximumRedirection 0 -TimeoutSec 10 | Select-Object -Expand StatusCode
+    if ($statusCode -eq 307 -or $statusCode -eq 0){
+        Write-Host $url "is blocked:" $statusCode
+    }elseif ($statusCode -ge 300 -and $statusCode -lt 400) {
+        Write-Host $url " was redirected with a code of" $statusCode
+    }elseif ($statusCode -ge 400 -and $statusCode -lt 500){
+        Write-Host "There was a client error when trying to reach" $url". The code is " $statusCode
+    }elseif ($statusCode -ge 400 -and $statusCode -lt 500){
+        Write-Host "There was a server error when trying to reach" $url". The code is " $statusCode
+    }elseif ($statusCode -ge 200 -and $statusCode -le 203){
+        Write-Host $url "is unblocked:" $statusCode
+        $unblockedString += "," + $url + " " + $statusCode
+    }else{
+        Write-Host $url "did an edge case"
     }
 }
 $unblockedString = $unblockedString -replace ",","`n"
